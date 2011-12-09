@@ -7,6 +7,7 @@ import urllib2
 import base64
 import json
 import time
+from jarduino_plotter import JarduinoPlotter
 
 ducksboard_widgets = ["25541", "25542"]
 ducksboard_url = 'https://push.ducksboard.com/values/%s/'
@@ -55,14 +56,16 @@ class JarduinoSerializer():
        
 
 def main(send):
-    serializer = JarduinoSerializer('/dev/ttyACM0')       
+    serializer = JarduinoSerializer('/dev/ttyACM0')
+    plotter = JarduinoPlotter()
     while 1:
         value = serializer.serialize()
         if value:
             print value
+            plotter.add(value)
+            plotter.plot()
             if send:
                 send_to_widgets(value)
-
 
 
 if __name__ == '__main__':
