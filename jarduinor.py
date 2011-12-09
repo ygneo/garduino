@@ -1,19 +1,20 @@
+#!/usr/bin/python
+
+import sys
+import re
 import serial
 import urllib2
 import base64
 import json
 import time
 
-class ArduinoSerializer(object):
 ducksboard_widgets = ["25541", "25542"]
 ducksboard_url = 'https://push.ducksboard.com/values/%s/'
 ducksboard_api_key = 'c955h3vjqlx1zg1o57ynbb4i6pi252ybw67sloqv48kejqt2f9'
 
 def send_to_widgets(value):
-    print value
     for widget in ducksboard_widgets:
         send_to_ducksboard(widget, value)
-
 
 def send_to_ducksboard(widget, value):
     """
@@ -29,27 +30,47 @@ def send_to_ducksboard(widget, value):
     response = urllib2.urlopen(request, json.dumps(msg))
 
 
-def main(send):
-    ser = serial.Serial('/dev/ttyACM0', 9600, timeout=2)
-    while 1:
+class JarduinoSerializer():
+    
+    def __init__(self, device, speed=9600, timeout=2):
+        self.device = device
+        self.speed = speed
+        self.timeout = timeout
+        self.serial = serial.Serial(self.device, self.speed, timeout=self.timeout)
+        self.value_pattern = re.compile("^#[0-9]?[0-9]?[0-9]?[0-9]#$")
+
+    def serialize(self):
         try:
-            data = ser.readline().strip()
-            if data[0]=="#" and data[len(data)-1] == "#":
-                value = data.replace("#", "")
+            data = self.serial.readline().strip()
+            if self.value_pattern.match(data):
+                return data.replace("#", "")
+            else: 
+                return None
         except serial.SerialException:
             pass
-        print value
-        if send:
-            send_to_widgets(value)
-    ser.close()
+        return value
+
+    def close(self):
+        self.serial.close()
+       
+
+def main(send):
+    serializer = JarduinoSerializer('/dev/ttyACM0')       
+    while 1:
+        value = serializer.serialize()
+        if value:
+            print value
+            if send:
+                send_to_widgets(value)
+
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 5:
+    if len(sys.argv) < 1:
         print ('Usage: %s [send].\nBy default is printing values from serial. If send indicated, it will send data to configured ducksboard widgets' % sys.argv[0])
         sys.exit(0)
     try:
-        send = bool(sys.argv[5])
+        send = bool(sys.argv[1] == "send")
     except Exception:
         send = False
 
