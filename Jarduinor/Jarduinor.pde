@@ -1,17 +1,11 @@
 /*
  First moisture sensure prototype:
     * Sensor: two nails connected to an circuit amplifying electric signal to analog pin,
-    * Read sensor value in analog pin and send JSOnN in ducksboa
- 
- Reads an analog input pin, maps the result to a range from 0 to 255
- and uses the result to set the pulsewidth modulation (PWM) of an output pin.
- Also prints the results to the serial monitor.
+    * Read sensor value in analog pin and print it in serial output.
  
  The circuit:
- * potentiometer connected to analog pin 0.
-   Center pin of the potentiometer goes to the analog pin.
-   side pins of the potentiometer go to +5V and ground
- * LED connected from digital pin 9 to ground
+ <TDB>
+ 
  
  created 29 Dec. 2008
  Modified 4 Sep 2010
@@ -29,14 +23,17 @@ const int analogOutPin = 9; // Analog output pin that the LED is attached to
 int sensorValue = 0;        // value read from the pot
 int outputValue = 0;        // 
 
-
-
-
-
 void SendToSerial (int id, int sensorValue)
 {
+
+
+
+
   // print the results to the serial monitor:
+  Serial.print("#");
   Serial.print(sensorValue);
+  Serial.print("#");
+  
   Serial.print("\n");
 }
 
