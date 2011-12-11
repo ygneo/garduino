@@ -7,31 +7,38 @@ import urllib2
 import base64
 import json
 import time
-from jarduino_plotter import JarduinoPlotter
 
-ducksboard_widgets = ["25541", "25542"]
-ducksboard_url = 'https://push.ducksboard.com/values/%s/'
-ducksboard_api_key = 'c955h3vjqlx1zg1o57ynbb4i6pi252ybw67sloqv48kejqt2f9'
+DUCKSBOARD_ENDPOINT_IDS = ["25541", "25542"]
+DUCKSBOARD_ENDPOINT_TEMPLATE = 'https://push.ducksboard.com/values/%s/'
+DUCKSBOARD_DEFAULT_API_KEY = 'c955h3vjqlx1zg1o57ynbb4i6pi252ybw67sloqv48kejqt2f9'
 
-def send_to_widgets(value):
-    for widget in ducksboard_widgets:
-        send_to_ducksboard(widget, value)
+class DucksboardEmitter(object):
 
-def send_to_ducksboard(widget, value):
-    """
-    Given a value to send to ducksboard, builds the JSON encoded
-    message and performs the request using the client api key as
-    basic auth username (Ducksboard won't check the password).
-    """
-    msg = {'value': int(value)}
-    request = urllib2.Request(ducksboard_url % str(widget))
-    auth = base64.encodestring('%s:x' % ducksboard_api_key)
-    auth = auth.replace('\n', '')
-    request.add_header('Authorization', 'Basic %s' % auth)
-    response = urllib2.urlopen(request, json.dumps(msg))
+    def __init__(self, endpoints_ids, api_key=DUCKSBOARD_DEFAULT_API_KEY):
+        self.endpoints_ids = endpoints_ids
+        self.api_key = api_key
+    
+    def send(self, value):
+        print "Sending to endpoints %s... " % self.endpoints_ids,
+        for endpoint in self.endpoints_ids:
+            self._send_to_endpoint(endpoint, value)
+        print "[OK]"
 
+    def _send_to_endpoint(self, endpoint, value):
+        """
+        Given a value to send to ducksboard, builds the JSON encoded
+        message and performs the request using the client api key as
+        basic auth username (Ducksboard won't check the password).
+        """
+        msg = {'value': int(value)}
+        request = urllib2.Request(DUCKSBOARD_ENDPOINT_TEMPLATE % str(endpoint))
+        auth = base64.encodestring('%s:x' % self.api_key)
+        auth = auth.replace('\n', '')
+        request.add_header('Authorization', 'Basic %s' % auth)
+        response = urllib2.urlopen(request, json.dumps(msg))
+        
 
-class JarduinoSerializer():
+class JarduinoSerializer(object):
     
     def __init__(self, device, speed=9600, timeout=2):
         self.device = device
@@ -57,15 +64,13 @@ class JarduinoSerializer():
 
 def main(send):
     serializer = JarduinoSerializer('/dev/ttyACM0')
-    plotter = JarduinoPlotter()
+    emitter = DucksboardEmitter(DUCKSBOARD_ENDPOINT_IDS)
     while 1:
         value = serializer.serialize()
         if value:
-            print value
-            plotter.add(value)
-            plotter.plot()
+            print "%s,%s" % (time.time(), value)
             if send:
-                send_to_widgets(value)
+                emitter.send(value)
 
 
 if __name__ == '__main__':
