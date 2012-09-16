@@ -28,7 +28,6 @@ void SendToSerial (int id, int sensorValue)
   Serial.print("#");
   Serial.print(sensorValue);
   Serial.print("#");
-  
   Serial.print("\n");
 }
 
