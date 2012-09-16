@@ -1,25 +1,12 @@
 /*
- First moisture sensure prototype. 
+ Two-entries moisture sensure prototype. 
  
- Arduino connected electric signal amplifying circuit and two cabled nails as conductivity
- (~moisture) sensor.
- 
- It reads value from analog in pin and print it to serial formatted as "#<value>#". 
- Value is (0, 1024), although maximium empiric value is 893. So 100% moisture can be
- considered at 900.
-
- The circuit:
-    * Sensor: two nails connected to an circuit amplifying electric signal to analog pin,
- <TDB>
- 
- created 7 Dec. 2011
- by Antonio Barcia
- 
- This code is in the public domain.
  */
 
 
 const int analogInPin = A0;  // Analog input pin that the potentiometer is attached to
+const int digitalOutPin1 = 2;
+const int digitalOutPin2 = 7;
 
 int sensorValue = 0;        // value read from the pot
 
@@ -38,12 +25,33 @@ void setup() {
   Serial.begin(9600); 
 }
 
+void blink(int pin) {
+  static int state;
+  if (state) {
+    digitalWrite(pin, HIGH);   // set the LED on
+  }
+  else {
+    digitalWrite(pin, LOW);   // set the LED on
+  }
+  state = !state;
+}
+
 void loop() {
   // read the analog in value
   sensorValue = analogRead(analogInPin);            
-
   SendToSerial(1, sensorValue);
- 
+
+  pinMode(digitalOutPin1, OUTPUT);   
+  pinMode(digitalOutPin2, OUTPUT);   
+  
+  if (sensorValue < 400) {
+     digitalWrite(digitalOutPin1, HIGH); 
+  }
+  else {
+     digitalWrite(digitalOutPin1, LOW);
+  }  
+  blink(digitalOutPin2);
+     
   // wait 10 milliseconds before the next loop
   // for the analog-to-digital converter to settle
   // after the last reading:
