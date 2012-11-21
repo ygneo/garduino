@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 import sys
 import re
 import serial
@@ -8,20 +7,23 @@ import base64
 import json
 import time
 
-DUCKSBOARD_ENDPOINT_IDS = ["25541", "25542"]
+
+DUCKSBOARD_ENDPOINTS = {"1": ["94419", "94415"], 
+                        "2": ["94420", "94417"]}
 DUCKSBOARD_ENDPOINT_TEMPLATE = 'https://push.ducksboard.com/values/%s/'
 DUCKSBOARD_DEFAULT_API_KEY = 'c955h3vjqlx1zg1o57ynbb4i6pi252ybw67sloqv48kejqt2f9'
 
-class DucksboardEmitter(object):
 
-    def __init__(self, endpoints_ids, api_key=DUCKSBOARD_DEFAULT_API_KEY):
-        self.endpoints_ids = endpoints_ids
+class DucksboardPusher(object):
+    
+    def __init__(self, endpoints=DUCKSBOARD_ENDPOINTS, api_key=DUCKSBOARD_DEFAULT_API_KEY):
+        self.endpoints = endpoints
         self.api_key = api_key
     
-    def send(self, value):
-        print "Sending to endpoints %s... " % self.endpoints_ids,
-        for endpoint in self.endpoints_ids:
-            self._send_to_endpoint(endpoint, value)
+    def push(self, values):
+        print "Pushing to endpoints %s... " % self.endpoints,
+        for endpoint in self.endpoints[values[0]]:
+            self._send_to_endpoint(endpoint, values[1])
         print "[OK]"
 
     def _send_to_endpoint(self, endpoint, value):
@@ -38,20 +40,21 @@ class DucksboardEmitter(object):
         response = urllib2.urlopen(request, json.dumps(msg))
         
 
-class JarduinoSerializer(object):
+class GarduinoParser(object):
     
     def __init__(self, device, speed=9600, timeout=2):
         self.device = device
         self.speed = speed
         self.timeout = timeout
         self.serial = serial.Serial(self.device, self.speed, timeout=self.timeout)
-        self.value_pattern = re.compile("^#[0-9]?[0-9]?[0-9]?[0-9]#$")
+        self.value_pattern = re.compile("^#([0-9])#([0-9]+)#$")
 
-    def serialize(self):
+    def parse(self):
         try:
             data = self.serial.readline().strip()
-            if self.value_pattern.match(data):
-                return data.replace("#", "")
+            match = self.value_pattern.match(data)
+            if match:
+                 return match.groups()
             else: 
                 return None
         except serial.SerialException:
@@ -63,14 +66,14 @@ class JarduinoSerializer(object):
        
 
 def main(send):
-    serializer = JarduinoSerializer('/dev/ttyACM0')
-    emitter = DucksboardEmitter(DUCKSBOARD_ENDPOINT_IDS)
+    parser = GarduinoParser('/dev/ttyACM0')
+    pusher = DucksboardPusher()
     while 1:
-        value = serializer.serialize()
-        if value:
-            print "%s,%s" % (time.time(), value)
+        values = parser.parse()
+        if values:
+            print "%s %s" % (time.time(), values)
             if send:
-                emitter.send(value)
+                pusher.push(values)
 
 
 if __name__ == '__main__':
