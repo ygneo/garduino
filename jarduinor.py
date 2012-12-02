@@ -83,7 +83,6 @@ class GarduinoParser(object):
                 return None
         except serial.SerialException:
             pass
-        return value
 
     def close(self):
         self.serial.close()
