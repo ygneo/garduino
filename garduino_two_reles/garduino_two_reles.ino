@@ -9,15 +9,18 @@ const int digitalOutPin2 = 3; // Rele-Electrovalve output #2
 const int minSensorValue1 = 400; // Minimun value from the potentiometer #1 to trigger watering
 const int minSensorValue2 = 500; // Minimun value from the potentiometer #2 to trigger watering
 
-int sensorValue = 0; // value read from the potentiometer
-
-void SendToSerial (int number, int sensorValue)
+void sendToSerial (int number, int sensorValue)
 {
   // print the results to the serial monitor:
   Serial.print("#");
   Serial.print(number);
   Serial.print("#");
-  Serial.print(sensorValue);
+  if (sensorValue == -1) {
+    Serial.print("w");
+  }
+  else {
+    Serial.print(sensorValue);
+  }
   Serial.print("#");
   Serial.print("\n");
 }
@@ -30,29 +33,28 @@ void setup() {
 }
 
 void loop() {
-  int sensorValue1, sensorValue2 = 0;
+  int sensorValue1, sensorValue2;
   // read the analog in value
   sensorValue1 = analogRead(analogInPin1);
-  SendToSerial(1, sensorValue1);
+  sendToSerial(1, sensorValue1);
   sensorValue2 = analogRead(analogInPin2);
-  SendToSerial(2, sensorValue2);
+  sendToSerial(2, sensorValue2);
   
   if (sensorValue1 <= minSensorValue1) {
-     digitalWrite(digitalOutPin1, HIGH); 
+     digitalWrite(digitalOutPin1, HIGH);
+     sendToSerial(1, -1);
   }
   else {
      digitalWrite(digitalOutPin1, LOW);
   }  
 
   if (sensorValue2 <= minSensorValue2) {
-     digitalWrite(digitalOutPin2, HIGH); 
+     digitalWrite(digitalOutPin2, HIGH);
+     sendToSerial(2, -); 
   }
   else {
      digitalWrite(digitalOutPin2, LOW);
-  }  
-     
-  // wait 10 milliseconds before the next loop
-  // for the analog-to-digital converter to settle
-  // after the last reading:
-  delay(1000);                     
+  }
+  
+  delay(1000);    
 }
