@@ -8,8 +8,13 @@ import json
 import time
 
 
-DUCKSBOARD_ENDPOINTS = {"1": ["94419", "94415"], 
-                        "2": ["94420", "94417"]}
+DUCKSBOARD_ENDPOINTS = {"1": {"moisture": ["94419", "94415"],
+                              "watering": ["94416"],
+                              },
+                        "2": {"moisture": ["94420", "94417"],
+                              "watering": ["94418"],
+                              }
+                        }
 DUCKSBOARD_ENDPOINT_TEMPLATE = 'https://push.ducksboard.com/values/%s/'
 DUCKSBOARD_DEFAULT_API_KEY = 'c955h3vjqlx1zg1o57ynbb4i6pi252ybw67sloqv48kejqt2f9'
 
@@ -21,10 +26,29 @@ class DucksboardPusher(object):
         self.api_key = api_key
     
     def push(self, values):
-        print "Pushing to endpoints %s... " % self.endpoints,
-        for endpoint in self.endpoints[values[0]]:
-            self._send_to_endpoint(endpoint, values[1])
+        print "Pushing to endpoints %s... " % self.endpoints
+        endpoint_id, value = values
+        self._push_to_endpoints(endpoint_id, value)
+        time.sleep(1)
         print "[OK]"
+
+    def _push_to_endpoints(self, endpoint_id, value):
+        if value == "w":
+            value_type = "watering"
+            watering_value = 200
+            endpoints = self.endpoints[endpoint_id][value_type]
+            self._send_to_endpoints(endpoints, watering_value)
+        else:
+            value_type = "moisture"
+            watering_value = 0
+            endpoints = self.endpoints[endpoint_id]["watering"]
+            self._send_to_endpoints(endpoints, 0)
+            endpoints = self.endpoints[endpoint_id]["moisture"]
+            self._send_to_endpoints(endpoints, value)
+
+    def _send_to_endpoints(self, endpoints, value):
+        for endpoint in endpoints:
+            self._send_to_endpoint(endpoint, value)
 
     def _send_to_endpoint(self, endpoint, value):
         """
@@ -47,7 +71,7 @@ class GarduinoParser(object):
         self.speed = speed
         self.timeout = timeout
         self.serial = serial.Serial(self.device, self.speed, timeout=self.timeout)
-        self.value_pattern = re.compile("^#([0-9])#([0-9]+)#$")
+        self.value_pattern = re.compile("^#([0-9])#([0-9]+|w)#$")
 
     def parse(self):
         try:
