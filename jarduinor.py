@@ -8,11 +8,11 @@ import json
 import time
 
 
-DUCKSBOARD_ENDPOINTS = {"1": {"moisture": ["94419", "94415"],
-                              "watering": ["94416"],
+DUCKSBOARD_ENDPOINTS = {"1": {"moisture": ["94419", "94718"],
+                              "watering": ["94719"],
                               },
-                        "2": {"moisture": ["94420", "94417"],
-                              "watering": ["94418"],
+                        "2": {"moisture": ["94420", "94721"],
+                              "watering": ["94422"],
                               }
                         }
 DUCKSBOARD_ENDPOINT_TEMPLATE = 'https://push.ducksboard.com/values/%s/'
@@ -34,29 +34,28 @@ class DucksboardPusher(object):
 
     def _push_to_endpoints(self, endpoint_id, value):
         if value == "w":
-            value_type = "watering"
             watering_value = 200
-            endpoints = self.endpoints[endpoint_id][value_type]
-            self._send_to_endpoints(endpoints, watering_value)
-        else:
-            value_type = "moisture"
-            watering_value = 0
             endpoints = self.endpoints[endpoint_id]["watering"]
-            self._send_to_endpoints(endpoints, 0)
+            self._send_to_endpoints(endpoints, delta=watering_value)
+        else:
             endpoints = self.endpoints[endpoint_id]["moisture"]
-            self._send_to_endpoints(endpoints, value)
+            self._send_to_endpoints(endpoints, value=value)
 
-    def _send_to_endpoints(self, endpoints, value):
+
+    def _send_to_endpoints(self, endpoints, value=None, delta=None):
         for endpoint in endpoints:
-            self._send_to_endpoint(endpoint, value)
+            self._send_to_endpoint(endpoint, value=value, delta=delta)
 
-    def _send_to_endpoint(self, endpoint, value):
+    def _send_to_endpoint(self, endpoint, value=None, delta=None):
         """
         Given a value to send to ducksboard, builds the JSON encoded
         message and performs the request using the client api key as
         basic auth username (Ducksboard won't check the password).
         """
-        msg = {'value': int(value)}
+        if value:
+            msg = {'value': int(value)}
+        if delta:
+            msg = {'delta': int(delta)}
         request = urllib2.Request(DUCKSBOARD_ENDPOINT_TEMPLATE % str(endpoint))
         auth = base64.encodestring('%s:x' % self.api_key)
         auth = auth.replace('\n', '')
