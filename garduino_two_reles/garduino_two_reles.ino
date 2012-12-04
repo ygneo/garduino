@@ -3,72 +3,87 @@
  */
 const int analogInPin1 = A0; // Analog input pin from moisture sensor #1
 const int analogInPin2 = A2; // Analog input pin from moisture sensor #2
-const int digitalOutPin1 = 2; // Rele-Electrovalve output #1
-const int digitalOutPin2 = 3; // Rele-Electrovalve output #2
-const int minSensorValue1 = 400; // Minimun value from the potentiometer #1 to trigger watering
-const int minSensorValue2 = 500; // Minimun value from the potentiometer #2 to trigger watering
-const int wateringTime[] = {3000, 6000}; // Watering time for every plant
-const int checkingDelay = 1000; // Delay between checks (for the analog-to-digital converter to settle after last reading)
-const int checkAfterWateringInterval = 300000; // 5 min, for testing
-unsigned long int lastCheck[] = {0, 0}; // Last time moisture sensors was checked
 
+const int digitalOutPin[] = {2, 3}; // Rele-Electrovalve output
 
-void sendToSerial (int number, int sensorValue)
+const int minSensorValue[] = {400, 500}; // Minimun value from the potentiometer to trigger watering
+
+const int checkingDelay = 1000; // Delay in ms between checks  (for the analog-to-digital converter to settle after last reading)
+const int numChecksBeforeSending = 15; // Number of checks should be done before sending data to serial
+const int wateringTime[] = {3000, 4000}; // Watering time in ms for every plant
+
+void sendToSerial (int id, int value)
 {
   Serial.print("#");
-  Serial.print(number);
-  Serial.print("#");
-  if (sensorValue == -1) {
-    Serial.print("w");
+  Serial.print(id);
+  if (value == -1) {
+    Serial.println("#w#");
   }
   else {
-    Serial.print(sensorValue);
+    Serial.print("#");
+    Serial.print(value);
+    Serial.print("#");
+    Serial.print("\n");
   }
-  Serial.print("#");
-  Serial.print("\n");
 }
 
 void setup() {
   // initialize serial communications at 9600 bps:
   Serial.begin(9600);
-  pinMode(digitalOutPin1, OUTPUT);
-  pinMode(digitalOutPin2, OUTPUT);
-  digitalWrite(digitalOutPin1, LOW);
-  digitalWrite(digitalOutPin2, LOW);
+  pinMode(digitalOutPin[0], OUTPUT);
+  pinMode(digitalOutPin[1], OUTPUT);
+  digitalWrite(digitalOutPin[0], LOW);
+  digitalWrite(digitalOutPin[1], LOW);
+
+}
+
+boolean mustWater(int id, int value) {
+  return (value <= minSensorValue[id]);
+}
+
+int doWatering(int id) {
+  digitalWrite(digitalOutPin[id], HIGH);
+  sendToSerial(id, -1);
+  delay(wateringTime[id]);
+  digitalWrite(digitalOutPin[id], LOW);
+  return wateringTime[id];
 }
 
 void loop() {
-  int sensorValue1, sensorValue2;
-
-  sensorValue1 = analogRead(analogInPin1);
-  sendToSerial(1, sensorValue1);
-  Serial.print("lc1:\n");
-  Serial.print(lastCheck[0]);
-  Serial.print("\n");
-
-  sensorValue2 = analogRead(analogInPin2);
-  sendToSerial(2, sensorValue2);
-  Serial.print("lc2:\n");
-  Serial.print(lastCheck[1]);
-  Serial.print("\n");
-    
-  if (sensorValue1 <= minSensorValue1 && lastCheck[0] >= checkAfterWateringInterval) {
-     digitalWrite(digitalOutPin1, HIGH);
-     sendToSerial(1, -1);
-     delay(wateringTime[0]);
-     digitalWrite(digitalOutPin1, LOW);
-     lastCheck[0] = 0;
-  }
-
-  if (sensorValue2 <= minSensorValue2 && lastCheck[1] >= checkAfterWateringInterval) {
-     digitalWrite(digitalOutPin2, HIGH);
-     sendToSerial(2, -1);
-     delay(wateringTime[1]);
-     digitalWrite(digitalOutPin2, LOW);
-     lastCheck[1] = 0;
-  }
+  static int checksDone;
+  static int sum[2];
+  int sensorValue[2];
+  int mean[] = {0, 0};
+  int wateringDelay[] = {0, 0};
+  int delayTime = 0;
   
-  delay(checkingDelay);
-  lastCheck[0] += checkingDelay;
-  lastCheck[1] += checkingDelay;
+  sensorValue[0] = analogRead(analogInPin1);
+  sensorValue[1] = analogRead(analogInPin2);
+  checksDone++;
+ 
+  sum[0] += sensorValue[0];
+  sum[1] += sensorValue[1];
+  if (checksDone >= numChecksBeforeSending) {
+    mean[0] = sum[0] / checksDone;
+    mean[1] = sum[1] / checksDone;
+    sendToSerial(0, mean[0]);
+    sendToSerial(1, mean[1]);
+    checksDone = 0;
+    sum[0] = 0;
+    sum[1] = 0;
+    if (mustWater(0, mean[0])) {
+      wateringDelay[0] = doWatering(0);
+    }
+    if (mustWater(1, mean[1])) {
+      wateringDelay[1] = doWatering(1);
+    }
+  }   
+ 
+  delayTime = checkingDelay - (wateringDelay[0] + wateringDelay[1]);
+  if (delayTime > 0) {
+    delay(delayTime);
+  }
+  else {
+    delay(1000); // at least, to settle analog-digital converter
+  }
 }
