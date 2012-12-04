@@ -8,11 +8,13 @@ import json
 import time
 
 
-DUCKSBOARD_ENDPOINTS = {"1": {"moisture": ["94419", "94718"],
-                              "watering": ["94719"],
+DUCKSBOARD_ENDPOINTS = {"0": {"moisture": ["94419", "94718", "95007"],
+                              "watering_absolute": ["95008"],
+                              "watering_relative": ["94719"],
                               },
-                        "2": {"moisture": ["94420", "94721"],
-                              "watering": ["94422"],
+                        "1": {"moisture": ["94420", "94721", "95009"],
+                              "watering_absolute": ["95010"],
+                              "watering_relative": ["94722"],
                               }
                         }
 DUCKSBOARD_ENDPOINT_TEMPLATE = 'https://push.ducksboard.com/values/%s/'
@@ -27,19 +29,23 @@ class DucksboardPusher(object):
     
     def push(self, values):
         print "Pushing to endpoints %s... " % self.endpoints
-        endpoint_id, value = values
-        self._push_to_endpoints(endpoint_id, value)
+        value_id, value = values
+        self._push_to_endpoints(value_id, value)
         time.sleep(1)
         print "[OK]"
 
     def _push_to_endpoints(self, endpoint_id, value):
         if value == "w":
             watering_value = 200
-            endpoints = self.endpoints[endpoint_id]["watering"]
+            endpoints = self.endpoints[endpoint_id]["watering_relative"]
             self._send_to_endpoints(endpoints, delta=watering_value)
+            endpoints = self.endpoints[endpoint_id]["watering_absolute"]
+            self._send_to_endpoints(endpoints, value=watering_value)
         else:
             endpoints = self.endpoints[endpoint_id]["moisture"]
             self._send_to_endpoints(endpoints, value=value)
+            endpoints = self.endpoints[endpoint_id]["watering_absolute"]
+            self._send_to_endpoints(endpoints, value=1)
 
 
     def _send_to_endpoints(self, endpoints, value=None, delta=None):
