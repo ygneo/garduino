@@ -6,27 +6,37 @@ import urllib2
 import base64
 import json
 import time
+from libsaas.services import ducksboard
 
-
-DUCKSBOARD_ENDPOINTS = {"0": {"moisture": ["94419", "94718", "95007"],
-                              "watering_absolute": ["95008"],
-                              "watering_relative": ["94719"],
+MAX_SENSOR_VALUE = 800
+DUCKSBOARD_ENDPOINTS = {"0": {"absolute":
+                                  {"moisture": ["94419", "95007"],
+                                   "watering": ["95008"],
+                                   },
+                              "percentage":
+                                  {"moisture": ["95379", "95238"],
+                                   "watering": ["95380"],
+                                   }
                               },
-                        "1": {"moisture": ["94420", "94721", "95009"],
-                              "watering_absolute": ["95010"],
-                              "watering_relative": ["94722"],
+                        "1": {"absolute":
+                                  {"moisture": ["94420", "95009"],
+                                   "watering": ["95010"],
+                                   },
+                              "percentage":
+                                  {"moisture": ["95381", "95239"],
+                                   "watering": ["95382"],
+                                   }
                               }
                         }
-DUCKSBOARD_ENDPOINT_TEMPLATE = 'https://push.ducksboard.com/values/%s/'
-DUCKSBOARD_DEFAULT_API_KEY = 'c955h3vjqlx1zg1o57ynbb4i6pi252ybw67sloqv48kejqt2f9'
+DUCKSBOARD_API_KEY = 'c955h3vjqlx1zg1o57ynbb4i6pi252ybw67sloqv48kejqt2f9'
 
 
 class DucksboardPusher(object):
     
-    def __init__(self, endpoints=DUCKSBOARD_ENDPOINTS, api_key=DUCKSBOARD_DEFAULT_API_KEY):
+    def __init__(self, endpoints=DUCKSBOARD_ENDPOINTS, api_key=DUCKSBOARD_API_KEY):
+        self.ducksboard = ducksboard.Ducksboard(api_key)
         self.endpoints = endpoints
-        self.api_key = api_key
-    
+                    
     def push(self, values):
         print "Pushing to endpoints %s... " % self.endpoints
         value_id, value = values
@@ -37,37 +47,34 @@ class DucksboardPusher(object):
     def _push_to_endpoints(self, endpoint_id, value):
         if value == "w":
             watering_value = 200
-            endpoints = self.endpoints[endpoint_id]["watering_relative"]
-            self._send_to_endpoints(endpoints, delta=watering_value)
-            endpoints = self.endpoints[endpoint_id]["watering_absolute"]
+            endpoints = self.endpoints[endpoint_id]["absolute"]["watering"]
             self._send_to_endpoints(endpoints, value=watering_value)
+            endpoints = self.endpoints[endpoint_id]["percentage"]["watering"]
+            self._send_to_endpoints(endpoints, value=self._percentage(watering_value))
         else:
-            endpoints = self.endpoints[endpoint_id]["moisture"]
+            endpoints = self.endpoints[endpoint_id]["absolute"]["moisture"]
             self._send_to_endpoints(endpoints, value=value)
-            endpoints = self.endpoints[endpoint_id]["watering_absolute"]
-            self._send_to_endpoints(endpoints, value=1)
+            endpoints = self.endpoints[endpoint_id]["percentage"]["moisture"]
+            self._send_to_endpoints(endpoints, value=self._percentage(value))
+            endpoints = self.endpoints[endpoint_id]["absolute"]["watering"]
+            self._send_to_endpoints(endpoints, value=0)
+            
+    def _percentage(self, value):
+        print float(int(value) / float(MAX_SENSOR_VALUE))
+        return float(int(value) / float(MAX_SENSOR_VALUE))
 
-
-    def _send_to_endpoints(self, endpoints, value=None, delta=None):
+    def _send_to_endpoints(self, endpoints, value=None):
         for endpoint in endpoints:
-            self._send_to_endpoint(endpoint, value=value, delta=delta)
+            self._send_to_endpoint(endpoint, value=value)
 
-    def _send_to_endpoint(self, endpoint, value=None, delta=None):
+    def _send_to_endpoint(self, endpoint_id, value=None):
         """
         Given a value to send to ducksboard, builds the JSON encoded
         message and performs the request using the client api key as
         basic auth username (Ducksboard won't check the password).
         """
-        if value:
-            msg = {'value': int(value)}
-        if delta:
-            msg = {'delta': int(delta)}
-        request = urllib2.Request(DUCKSBOARD_ENDPOINT_TEMPLATE % str(endpoint))
-        auth = base64.encodestring('%s:x' % self.api_key)
-        auth = auth.replace('\n', '')
-        request.add_header('Authorization', 'Basic %s' % auth)
-        response = urllib2.urlopen(request, json.dumps(msg))
-        
+        self.ducksboard.data_source(endpoint_id).push({"value": value})
+ 
 
 class GarduinoParser(object):
     
@@ -93,8 +100,8 @@ class GarduinoParser(object):
         self.serial.close()
        
 
-def main(send):
-    parser = GarduinoParser('/dev/ttyACM0')
+def main(send, serial_device):
+    parser = GarduinoParser(serial_device)
     pusher = DucksboardPusher()
     while 1:
         values = parser.parse()
@@ -106,11 +113,16 @@ def main(send):
 
 if __name__ == '__main__':
     if len(sys.argv) < 1:
-        print ('Usage: %s [send].\nBy default is printing values from serial. If send indicated, it will send data to configured ducksboard widgets' % sys.argv[0])
+        print ('Usage: %s [send] -s [serial_device].\nBy default is printing values from serial /dev/ttyACM0.'  
+               'If send indicated, it will send data to configured ducksboard widgets' % sys.argv[0])
         sys.exit(0)
     try:
         send = bool(sys.argv[1] == "send")
     except Exception:
         send = False
+    try:
+        serial_device = sys.argv[2]
+    except Exception:
+        serial_device = '/dev/ttyACM0'
 
-    main(send)
+    main(send, serial_device)
