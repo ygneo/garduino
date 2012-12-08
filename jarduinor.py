@@ -6,7 +6,9 @@ import urllib2
 import base64
 import json
 import time
+import argparse
 from libsaas.services import ducksboard
+
 
 MAX_SENSOR_VALUE = 800
 DUCKSBOARD_ENDPOINTS = {"0": {"absolute":
@@ -100,29 +102,25 @@ class GarduinoParser(object):
         self.serial.close()
        
 
-def main(send, serial_device):
+def main(push, serial_device):
     parser = GarduinoParser(serial_device)
     pusher = DucksboardPusher()
     while 1:
         values = parser.parse()
         if values:
             print "%s %s" % (time.time(), values)
-            if send:
+            if push:
                 pusher.push(values)
 
 
 if __name__ == '__main__':
-    if len(sys.argv) < 1:
-        print ('Usage: %s [send] -s [serial_device].\nBy default is printing values from serial /dev/ttyACM0.'  
-               'If send indicated, it will send data to configured ducksboard widgets' % sys.argv[0])
-        sys.exit(0)
-    try:
-        send = bool(sys.argv[1] == "send")
-    except Exception:
-        send = False
-    try:
-        serial_device = sys.argv[2]
-    except Exception:
-        serial_device = '/dev/ttyACM0'
-
-    main(send, serial_device)
+    parser = argparse.ArgumentParser(description='Garduino parser and pusher.'
+                                     'By default is reading /dev/ttyACM0')
+    parser.add_argument('--serial', action='store', dest='serial_device',
+                    help='Set serial device for reading', default='/dev/ttyACM0')
+    parser.add_argument('--push', action='store_true', dest='push',
+                        default=False,
+                        help='Activates pushing')
+    
+    args = parser.parse_args()
+    main(args.push, args.serial_device)
